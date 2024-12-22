@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\ClientController;
 use App\Http\Controllers\Api\ParcelController;
 use App\Http\Controllers\Api\ReceiverController;
 use App\Http\Controllers\Api\ItemController;
+use App\Http\Controllers\Api\UserController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -16,6 +17,11 @@ use Illuminate\Support\Facades\Route;
 // Public routes
 Route::post('/register', [AuthController::class, 'register'])->name('api.register');
 Route::post('/login', [AuthController::class, 'login'])->name('api.login');
+
+// User route with its own middleware
+Route::get('/user', [UserController::class, 'me'])
+    ->middleware('auth:sanctum')
+    ->name('api.user.me');
 
 // Protected routes
 Route::middleware('auth:sanctum')->group(function () {

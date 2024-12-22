@@ -12,21 +12,37 @@ class ParcelController extends Controller
     /**
      * Get all parcels with their items
      *
+     * @param Request $request
      * @return \Illuminate\Http\JsonResponse
      */
-    public function index()
+    public function index(Request $request)
     {
         try {
-            $parcels = Parcel::with(['items', 'client', 'receiver'])->get();
+            $perPage = $request->input('per_page', 20); // Default 20 items per page
+            $perPage = min(max($perPage, 1), 100); // Ensure per_page is between 1 and 100
+            
+            $parcels = Parcel::with(['items', 'client', 'receiver'])
+                ->paginate($perPage);
 
             return response()->json([
                 'status' => 'success',
-                'data' => $parcels
+                'data' => $parcels->items(),
+                'pagination' => [
+                    'current_page' => $parcels->currentPage(),
+                    'per_page' => $parcels->perPage(),
+                    'total' => $parcels->total(),
+                    'last_page' => $parcels->lastPage(),
+                    'from' => $parcels->firstItem(),
+                    'to' => $parcels->lastItem(),
+                    'next_page_url' => $parcels->nextPageUrl(),
+                    'prev_page_url' => $parcels->previousPageUrl(),
+                ]
             ]);
         } catch (\Exception $e) {
             Log::error('Failed to fetch parcels', [
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
+                'request' => $request->all()
             ]);
 
             return response()->json([
