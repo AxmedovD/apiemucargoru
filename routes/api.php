@@ -29,9 +29,11 @@ Route::middleware('auth:sanctum')->group(function () {
     
     // Client routes
     Route::get('/clients', [ClientController::class, 'index'])->name('api.clients.index');
+    Route::get('/clients/search', [ClientController::class, 'search'])->name('api.clients.search');
     Route::post('/clients/add', [ClientController::class, 'store'])->name('api.clients.store');
     Route::get('/clients/{id}', [ClientController::class, 'show'])->name('api.clients.show');
-    Route::put('/clients/{id}', [ClientController::class, 'update'])->name('api.clients.update');
+    Route::post('/clients/{client_id}/edit', [ClientController::class, 'update'])->name('api.clients.update');
+    Route::post('/clients/{client_id}/retoken', [ClientController::class, 'regenerateToken'])->name('api.clients.retoken');
     Route::delete('/clients/{id}', [ClientController::class, 'destroy'])->name('api.clients.destroy');
 
     // Parcel routes

@@ -13,23 +13,38 @@ use Illuminate\Validation\ValidationException;
 class ClientController extends Controller
 {
     /**
-     * Get all clients
+     * Get all clients with pagination
      *
+     * @param Request $request
      * @return \Illuminate\Http\JsonResponse
      */
-    public function index()
+    public function index(Request $request)
     {
         try {
-            $clients = Client::all();
+            $perPage = $request->input('per_page', 20); // Default 20 items per page
+            $perPage = min(max($perPage, 1), 100); // Ensure per_page is between 1 and 100
+            
+            $clients = Client::paginate($perPage);
             
             return response()->json([
                 'status' => 'success',
-                'data' => $clients
+                'data' => $clients->items(),
+                'pagination' => [
+                    'current_page' => $clients->currentPage(),
+                    'per_page' => $clients->perPage(),
+                    'total' => $clients->total(),
+                    'last_page' => $clients->lastPage(),
+                    'from' => $clients->firstItem(),
+                    'to' => $clients->lastItem(),
+                    'next_page_url' => $clients->nextPageUrl(),
+                    'prev_page_url' => $clients->previousPageUrl(),
+                ]
             ]);
         } catch (\Exception $e) {
             Log::error('Failed to fetch clients', [
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
+                'request' => $request->all()
             ]);
             
             return response()->json([
@@ -71,6 +86,68 @@ class ClientController extends Controller
             return response()->json([
                 'status' => 'error',
                 'message' => 'Failed to fetch client: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Search clients by ID or name
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function search(Request $request)
+    {
+        try {
+            $query = $request->input('q');
+            $perPage = $request->input('per_page', 20);
+            $perPage = min(max($perPage, 1), 100);
+
+            if (empty($query)) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Search query is required'
+                ], 400);
+            }
+
+            $clients = Client::where(function($q) use ($query) {
+                // If query is numeric, search by client_id
+                if (is_numeric($query)) {
+                    $q->where('client_id', $query);
+                }
+                
+                // Also search by name (case-insensitive)
+                $q->orWhere('name', 'LIKE', '%' . $query . '%');
+            })
+            ->paginate($perPage);
+
+            return response()->json([
+                'status' => 'success',
+                'data' => $clients->items(),
+                'pagination' => [
+                    'current_page' => $clients->currentPage(),
+                    'per_page' => $clients->perPage(),
+                    'total' => $clients->total(),
+                    'last_page' => $clients->lastPage(),
+                    'from' => $clients->firstItem(),
+                    'to' => $clients->lastItem(),
+                    'next_page_url' => $clients->nextPageUrl(),
+                    'prev_page_url' => $clients->previousPageUrl(),
+                ],
+                'query' => $query
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Failed to search clients', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'query' => $query,
+                'request' => $request->all()
+            ]);
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to search clients: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -151,6 +228,140 @@ class ClientController extends Controller
                 'status' => 'error',
                 'message' => 'Failed to add client: ' . $e->getMessage(),
                 'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Update an existing client
+     *
+     * @param Request $request
+     * @param int $client_id
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function update(Request $request, $client_id)
+    {
+        try {
+            DB::beginTransaction();
+            
+            $client = Client::where('client_id', $client_id)->first();
+            
+            if (!$client) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Client not found'
+                ], 404);
+            }
+
+            $validated = $request->validate([
+                'name' => 'sometimes|required|string|max:50',
+                'contact' => 'sometimes|required|string|max:50',
+                'country_code' => 'sometimes|required|string|max:5',
+                'address' => 'sometimes|required|string|max:100',
+                'url' => 'sometimes|required|string|max:50|url',
+                'webhook' => 'nullable|string|max:255|url'
+            ]);
+
+            Log::info('Updating client', [
+                'client_id' => $client_id,
+                'current_data' => $client->toArray(),
+                'new_data' => $validated
+            ]);
+
+            // Update only the fields that were provided
+            $client->fill($validated);
+            $client->timestamps = false;
+            $client->save();
+
+            DB::commit();
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Client updated successfully',
+                'data' => $client
+            ]);
+
+        } catch (ValidationException $e) {
+            DB::rollBack();
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Failed to update client', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'client_id' => $client_id,
+                'request' => $request->all()
+            ]);
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to update client: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Regenerate client token
+     *
+     * @param int $client_id
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function regenerateToken($client_id)
+    {
+        try {
+            DB::beginTransaction();
+            
+            $client = Client::where('client_id', $client_id)->first();
+            
+            if (!$client) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Client not found'
+                ], 404);
+            }
+
+            // Store old token for logging
+            $oldToken = $client->token;
+
+            // Generate new token
+            $newToken = $this->generateUniqueToken();
+            
+            Log::info('Regenerating client token', [
+                'client_id' => $client_id,
+                'old_token_hash' => hash('sha256', $oldToken) // Log hashed version for security
+            ]);
+
+            // Update token
+            $client->token = $newToken;
+            $client->timestamps = false;
+            $client->save();
+
+            DB::commit();
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Client token regenerated successfully',
+                'data' => [
+                    'client_id' => $client->client_id,
+                    'token' => $newToken
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Failed to regenerate client token', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'client_id' => $client_id
+            ]);
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to regenerate client token: ' . $e->getMessage()
             ], 500);
         }
     }
