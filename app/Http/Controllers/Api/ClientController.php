@@ -153,6 +153,27 @@ class ClientController extends Controller
     }
 
     /**
+     * Generate a new client ID
+     * Starts from 300 and skips random 1-9 numbers from last ID
+     *
+     * @return int
+     */
+    private function generateClientId()
+    {
+        $lastClient = Client::orderBy('client_id', 'desc')->first();
+        $startId = 300;
+        
+        if (!$lastClient) {
+            return $startId;
+        }
+
+        $lastId = $lastClient->client_id;
+        $skipCount = rand(1, 9); // Random skip between 1-9
+        
+        return $lastId + $skipCount;
+    }
+
+    /**
      * Add a new client
      *
      * @param Request $request
@@ -166,7 +187,6 @@ class ClientController extends Controller
             Log::info('Client creation attempt', ['request' => $request->all()]);
 
             $validated = $request->validate([
-                'client_id' => 'required|integer|min:1|max:9999999|unique:client',
                 'name' => 'required|string|max:50',
                 'contact' => 'required|string|max:50',
                 'country_code' => 'required|string|max:5',
@@ -175,7 +195,9 @@ class ClientController extends Controller
                 'webhook' => 'nullable|string|max:255|url'
             ]);
 
-            Log::info('Validation passed', ['validated_data' => $validated]);
+            // Generate client_id
+            $clientId = $this->generateClientId();
+            Log::info('Generated client_id', ['client_id' => $clientId]);
 
             // Generate a unique token
             $token = $this->generateUniqueToken();
@@ -183,7 +205,7 @@ class ClientController extends Controller
 
             // Create client with explicit values
             $client = new Client();
-            $client->client_id = $validated['client_id'];
+            $client->client_id = $clientId;
             $client->name = $validated['name'];
             $client->contact = $validated['contact'];
             $client->country_code = $validated['country_code'];
@@ -194,15 +216,18 @@ class ClientController extends Controller
             $client->timestamps = false;
             $client->save();
 
-            Log::info('Client created successfully', ['client' => $client->toArray()]);
+            Log::info('Client created successfully', [
+                'client_id' => $clientId,
+                'token_hash' => hash('sha256', $token) // Log hashed version for security
+            ]);
             
             DB::commit();
 
             return response()->json([
                 'status' => 'success',
-                'message' => 'Client added successfully',
+                'message' => 'Client created successfully',
                 'data' => $client
-            ], 201);
+            ]);
 
         } catch (ValidationException $e) {
             DB::rollBack();
@@ -210,12 +235,12 @@ class ClientController extends Controller
                 'errors' => $e->errors(),
                 'request' => $request->all()
             ]);
+
             return response()->json([
                 'status' => 'error',
                 'message' => 'Validation failed',
                 'errors' => $e->errors()
             ], 422);
-
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Failed to create client', [
@@ -223,11 +248,10 @@ class ClientController extends Controller
                 'trace' => $e->getTraceAsString(),
                 'request' => $request->all()
             ]);
-            
+
             return response()->json([
                 'status' => 'error',
-                'message' => 'Failed to add client: ' . $e->getMessage(),
-                'error' => $e->getMessage()
+                'message' => 'Failed to create client: ' . $e->getMessage()
             ], 500);
         }
     }
