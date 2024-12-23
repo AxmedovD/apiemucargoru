@@ -174,6 +174,27 @@ class ClientController extends Controller
     }
 
     /**
+     * Format URL by adding https:// if protocol is missing
+     *
+     * @param string|null $url
+     * @return string|null
+     */
+    private function formatUrl($url)
+    {
+        if (empty($url)) {
+            return null;
+        }
+
+        // If URL already has a protocol (http:// or https://), return as is
+        if (preg_match('/^https?:\/\//i', $url)) {
+            return $url;
+        }
+
+        // Add https:// to the URL
+        return 'https://' . $url;
+    }
+
+    /**
      * Add a new client
      *
      * @param Request $request
@@ -191,9 +212,13 @@ class ClientController extends Controller
                 'contact' => 'required|string|max:50',
                 'country_code' => 'required|string|max:5',
                 'address' => 'required|string|max:100',
-                'url' => 'required|string|max:50|url',
-                'webhook' => 'nullable|string|max:255|url'
+                'url' => 'required|string|max:50',
+                'webhook' => 'nullable|string|max:255'
             ]);
+
+            // Format URLs
+            $validated['url'] = $this->formatUrl($validated['url']);
+            $validated['webhook'] = $this->formatUrl($validated['webhook']);
 
             // Generate client_id
             $clientId = $this->generateClientId();
@@ -211,7 +236,7 @@ class ClientController extends Controller
             $client->country_code = $validated['country_code'];
             $client->address = $validated['address'];
             $client->url = $validated['url'];
-            $client->webhook = $validated['webhook'] ?? null;
+            $client->webhook = $validated['webhook'];
             $client->token = $token;
             $client->timestamps = false;
             $client->save();
@@ -282,9 +307,17 @@ class ClientController extends Controller
                 'contact' => 'sometimes|required|string|max:50',
                 'country_code' => 'sometimes|required|string|max:5',
                 'address' => 'sometimes|required|string|max:100',
-                'url' => 'sometimes|required|string|max:50|url',
-                'webhook' => 'nullable|string|max:255|url'
+                'url' => 'sometimes|required|string|max:50',
+                'webhook' => 'nullable|string|max:255'
             ]);
+
+            // Format URLs if they are provided
+            if (isset($validated['url'])) {
+                $validated['url'] = $this->formatUrl($validated['url']);
+            }
+            if (isset($validated['webhook'])) {
+                $validated['webhook'] = $this->formatUrl($validated['webhook']);
+            }
 
             Log::info('Updating client', [
                 'client_id' => $client_id,
