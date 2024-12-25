@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\ParcelController;
 use App\Http\Controllers\Api\ReceiverController;
 use App\Http\Controllers\Api\ItemController;
 use App\Http\Controllers\Api\UserController;
+use App\Http\Controllers\Api\CourierStatsController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -57,4 +58,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/items/{id}', [ItemController::class, 'show'])->name('api.items.show');
     Route::put('/items/{id}', [ItemController::class, 'update'])->name('api.items.update');
     Route::delete('/items/{id}', [ItemController::class, 'destroy'])->name('api.items.destroy');
+
+    // Courier Stats route
+    Route::get('/courier/stats', [CourierStatsController::class, 'getStats'])->name('api.courier.stats');
 });

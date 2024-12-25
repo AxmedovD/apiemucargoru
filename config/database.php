@@ -112,6 +112,27 @@ return [
             // 'trust_server_certificate' => env('DB_TRUST_SERVER_CERTIFICATE', 'false'),
         ],
 
+        'courier' => [
+            'driver' => 'mysql',
+            'host' => '185.196.213.40',
+            'port' => '3307',
+            'database' => 'courier',
+            'username' => 'Office',
+            'password' => 'GdtBdg34_50HdsbT',
+            'charset' => 'utf8mb4',
+            'collation' => 'utf8mb4_unicode_ci',
+            'prefix' => '',
+            'strict' => false,
+            'engine' => null,
+            'options' => extension_loaded('pdo_mysql') ? array_filter([
+                PDO::MYSQL_ATTR_SSL_CA => false,
+                PDO::ATTR_TIMEOUT => 60,
+                PDO::ATTR_PERSISTENT => false,
+                PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci",
+                PDO::ATTR_EMULATE_PREPARES => true,
+            ]) : [],
+        ],
+
     ],
 
     /*
