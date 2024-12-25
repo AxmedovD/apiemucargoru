@@ -17,53 +17,152 @@ class CourierStatsController extends Controller
             
             $stats = DB::connection('courier')->select("
                 SELECT 
-                    'Сегодня' AS period,
+                    'Today' AS period,
                     COUNT(CASE WHEN time_put IS NOT NULL THEN 1 END) AS delivered_count,
-                    COUNT(CASE WHEN time_put IS NULL THEN 1 END) AS return_count
+                    COUNT(CASE WHEN time_put IS NULL THEN 1 END) AS return_count,
+                    ROUND(SUM(price), 2) AS total_price,
+                    CASE 
+                        WHEN COUNT(CASE WHEN time_put IS NOT NULL THEN 1 END) = 0 
+                             THEN 0
+                        ELSE 
+                             ROUND(
+                                SUM(CASE WHEN time_put IS NOT NULL THEN price ELSE 0 END) 
+                                / COUNT(CASE WHEN time_put IS NOT NULL THEN 1 END),
+                                2
+                             )
+                    END AS avg_price_delivered,
+                    CASE 
+                        WHEN COUNT(CASE WHEN time_put IS NULL THEN 1 END) = 0 
+                             THEN 0
+                        ELSE 
+                             ROUND(
+                                SUM(CASE WHEN time_put IS NULL THEN price ELSE 0 END) 
+                                / COUNT(CASE WHEN time_put IS NULL THEN 1 END),
+                                2
+                             )
+                    END AS avg_price_returned
                 FROM address
                 WHERE date_put = CURDATE()
 
                 UNION ALL
 
                 SELECT 
-                    'Вчера' AS period,
+                    'Yesterday' AS period,
                     COUNT(CASE WHEN time_put IS NOT NULL THEN 1 END) AS delivered_count,
-                    COUNT(CASE WHEN time_put IS NULL THEN 1 END) AS return_count
+                    COUNT(CASE WHEN time_put IS NULL THEN 1 END) AS return_count,
+                    ROUND(SUM(price), 2) AS total_price,
+                    CASE 
+                        WHEN COUNT(CASE WHEN time_put IS NOT NULL THEN 1 END) = 0 
+                             THEN 0
+                        ELSE 
+                             ROUND(
+                                SUM(CASE WHEN time_put IS NOT NULL THEN price ELSE 0 END) 
+                                / COUNT(CASE WHEN time_put IS NOT NULL THEN 1 END),
+                                2
+                             )
+                    END AS avg_price_delivered,
+                    CASE 
+                        WHEN COUNT(CASE WHEN time_put IS NULL THEN 1 END) = 0 
+                             THEN 0
+                        ELSE 
+                             ROUND(
+                                SUM(CASE WHEN time_put IS NULL THEN price ELSE 0 END) 
+                                / COUNT(CASE WHEN time_put IS NULL THEN 1 END),
+                                2
+                             )
+                    END AS avg_price_returned
                 FROM address
                 WHERE date_put = CURDATE() - INTERVAL 1 DAY
 
                 UNION ALL
 
                 SELECT 
-                    'Текущий месяц' AS period,
+                    'Current Month' AS period,
                     COUNT(CASE WHEN time_put IS NOT NULL THEN 1 END) AS delivered_count,
-                    COUNT(CASE WHEN time_put IS NULL THEN 1 END) AS return_count
+                    COUNT(CASE WHEN time_put IS NULL THEN 1 END) AS return_count,
+                    ROUND(SUM(price), 2) AS total_price,
+                    CASE 
+                        WHEN COUNT(CASE WHEN time_put IS NOT NULL THEN 1 END) = 0 
+                             THEN 0
+                        ELSE 
+                             ROUND(
+                                SUM(CASE WHEN time_put IS NOT NULL THEN price ELSE 0 END) 
+                                / COUNT(CASE WHEN time_put IS NOT NULL THEN 1 END),
+                                2
+                             )
+                    END AS avg_price_delivered,
+                    CASE 
+                        WHEN COUNT(CASE WHEN time_put IS NULL THEN 1 END) = 0 
+                             THEN 0
+                        ELSE 
+                             ROUND(
+                                SUM(CASE WHEN time_put IS NULL THEN price ELSE 0 END) 
+                                / COUNT(CASE WHEN time_put IS NULL THEN 1 END),
+                                2
+                             )
+                    END AS avg_price_returned
                 FROM address
-                WHERE date_put BETWEEN DATE_FORMAT(CURDATE(), '%Y-%m-01') AND LAST_DAY(CURDATE())
+                WHERE date_put BETWEEN 
+                      DATE_FORMAT(CURDATE(), '%Y-%m-01') 
+                      AND LAST_DAY(CURDATE())
 
                 UNION ALL
 
                 SELECT 
-                    'Прошлый месяц' AS period,
+                    'Previous Month' AS period,
                     COUNT(CASE WHEN time_put IS NOT NULL THEN 1 END) AS delivered_count,
-                    COUNT(CASE WHEN time_put IS NULL THEN 1 END) AS return_count
+                    COUNT(CASE WHEN time_put IS NULL THEN 1 END) AS return_count,
+                    ROUND(SUM(price), 2) AS total_price,
+                    CASE 
+                        WHEN COUNT(CASE WHEN time_put IS NOT NULL THEN 1 END) = 0 
+                             THEN 0
+                        ELSE 
+                             ROUND(
+                                SUM(CASE WHEN time_put IS NOT NULL THEN price ELSE 0 END) 
+                                / COUNT(CASE WHEN time_put IS NOT NULL THEN 1 END),
+                                2
+                             )
+                    END AS avg_price_delivered,
+                    CASE 
+                        WHEN COUNT(CASE WHEN time_put IS NULL THEN 1 END) = 0 
+                             THEN 0
+                        ELSE 
+                             ROUND(
+                                SUM(CASE WHEN time_put IS NULL THEN price ELSE 0 END) 
+                                / COUNT(CASE WHEN time_put IS NULL THEN 1 END),
+                                2
+                             )
+                    END AS avg_price_returned
                 FROM address
-                WHERE date_put BETWEEN DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL 1 MONTH), '%Y-%m-01') 
-                    AND LAST_DAY(DATE_SUB(CURDATE(), INTERVAL 1 MONTH))
+                WHERE date_put BETWEEN 
+                      DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL 1 MONTH), '%Y-%m-01')
+                      AND LAST_DAY(DATE_SUB(CURDATE(), INTERVAL 1 MONTH))
 
                 ORDER BY 
                     CASE period
-                        WHEN 'Сегодня' THEN 1
-                        WHEN 'Вчера' THEN 2
-                        WHEN 'Текущий месяц' THEN 3
-                        WHEN 'Прошлый месяц' THEN 4
+                        WHEN 'Today' THEN 1
+                        WHEN 'Yesterday' THEN 2
+                        WHEN 'Current Month' THEN 3
+                        WHEN 'Previous Month' THEN 4
                         ELSE 5
                     END
             ");
 
+            // Transform the stats to ensure numeric values
+            $transformedStats = array_map(function($stat) {
+                return [
+                    'period' => $stat->period,
+                    'delivered_count' => (int)$stat->delivered_count,
+                    'return_count' => (int)$stat->return_count,
+                    'total_price' => (float)$stat->total_price,
+                    'avg_price_delivered' => (float)$stat->avg_price_delivered,
+                    'avg_price_returned' => (float)$stat->avg_price_returned
+                ];
+            }, $stats);
+
             return response()->json([
                 'success' => true,
-                'data' => $stats
+                'data' => $transformedStats
             ]);
 
         } catch (\Exception $e) {
